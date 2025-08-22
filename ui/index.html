@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Mini RAG UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    body{font-family:system-ui, Arial; max-width:780px; margin:40px auto; padding:0 16px}
+    .box{border:1px solid #ddd; border-radius:12px; padding:12px; margin:12px 0}
+    code{background:#f6f6f6; padding:2px 6px; border-radius:6px}
+    .row{display:flex; gap:8px}
+    input[type="text"]{flex:1; padding:8px}
+    button{padding:8px 12px; cursor:pointer}
+    ul{margin:6px 0 0 20px}
+  </style>
+</head>
+<body>
+  <h1>Mini RAG</h1>
+
+  <div class="box">
+    <h3>Upload a file</h3>
+    <input id="file" type="file"/>
+    <button onclick="upload()">Upload</button>
+    <span id="upStatus"></span>
+  </div>
+
+  <div class="box">
+    <h3>Ask</h3>
+    <div class="row">
+      <input id="q" type="text" placeholder="Ask a question..."/>
+      <button onclick="ask()">Ask</button>
+    </div>
+    <pre id="answer" class="box" style="white-space:pre-wrap"></pre>
+    <div id="sources" class="box"></div>
+  </div>
+<div class="box">
+  <h3>Ingest a folder of Markdown files</h3>
+  <input id="folderPath" type="text" placeholder="Absolute path to a folder (e.g., C:/Users/..../data)"/>
+  <button onclick="ingestFolder()">Ingest Folder</button>
+  <span id="folderStatus"></span>
+</div>
+
+<script>
+async function ingestFolder(){
+  const p = document.getElementById('folderPath').value.trim();
+  if(!p){ alert("Enter a folder path"); return; }
+  const fd = new FormData();
+  fd.append("folder_path", p);
+  const r = await fetch(`${API}/ingest/folder`, { method:"POST", body: fd });
+  const j = await r.json();
+  document.getElementById('folderStatus').textContent = j.ok ? "Folder ingested ✅" : JSON.stringify(j);
+}
+</script>
+
+<script>
+const API = "http://localhost:8000";
+
+async function upload(){
+  const f = document.getElementById('file').files[0];
+  if(!f){ alert("Choose a file first"); return; }
+  const fd = new FormData();
+  fd.append("file", f);
+  document.getElementById('upStatus').textContent = "Uploading…";
+  const r = await fetch(`${API}/ingest/file`, { method:"POST", body: fd });
+  const j = await r.json();
+  document.getElementById('upStatus').textContent = j.ok ? "Uploaded ✅" : "Upload failed";
+}
+
+async function ask(){
+  const q = document.getElementById('q').value.trim();
+  if(!q){ return; }
+  const r = await fetch(`${API}/ask?q=${encodeURIComponent(q)}`);
+  const j = await r.json();
+
+  document.getElementById('answer').textContent = j.answer || JSON.stringify(j, null, 2);
+
+  const srcDiv = document.getElementById('sources');
+  srcDiv.innerHTML = "<b>Sources</b>";
+  const ul = document.createElement('ul');
+  (j.sources || []).forEach(s => {
+    const li = document.createElement('li');
+    li.innerHTML = `<div><code>${s.source}</code> @ ${s.chunk}</div>
+                    <div>score: ${Number(s.score).toFixed(3)}</div>`;
+    ul.appendChild(li);
+  });
+  srcDiv.appendChild(ul);
+}
+</script>
+</body>
+</html>
