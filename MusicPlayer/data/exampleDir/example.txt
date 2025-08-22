@@ -1,2 +1,0 @@
-Hello LangChain.
-This is my first document.
